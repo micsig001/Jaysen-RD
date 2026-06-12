@@ -71,7 +71,7 @@ const router = createRouter({
         {
           path: 'rd/board',
           name: 'RdBoard',
-          component: () => import('@/views/PlaceholderView.vue'),
+          component: () => import('@/views/sprint/SprintBoardView.vue'),
           meta: { title: '敏捷看板', module: 'rd', phase: 'P2' }
         },
         {
