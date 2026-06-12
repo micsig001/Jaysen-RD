@@ -115,11 +115,11 @@ const router = createRouter({
       meta: { title: '登录', isPublic: true }
     },
 
-    // ============== 企微 OAuth 回调接收页（Phase 3 接入） ==============
+    // ============== 企微 OAuth 回调接收页（从 URL 拿 token 存 localStorage） ==============
     {
       path: '/login/callback',
       name: 'LoginCallback',
-      component: () => import('@/views/LoginView.vue'),
+      component: () => import('@/views/auth/LoginCallbackView.vue'),
       meta: { title: '登录中...', isPublic: true }
     },
 

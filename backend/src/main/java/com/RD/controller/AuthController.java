@@ -90,12 +90,15 @@ public class AuthController {
                                 HttpServletResponse response) throws IOException {
         log.info("[企微 OAuth] 收到回调, code={}, state={}", code, state);
 
+        // 安全: state 必须以 / 开头且不含协议头, 防止 open redirect
+        String safeState = sanitizeState(state);
+
         try {
             String accessToken = weWorkAuthService.loginByCode(code);
             String redirectUrl = frontendBaseUrl + "/login/callback"
                     + "?token=" + URLEncoder.encode(accessToken, StandardCharsets.UTF_8);
-            if (state != null) {
-                redirectUrl += "&state=" + URLEncoder.encode(state, StandardCharsets.UTF_8);
+            if (safeState != null) {
+                redirectUrl += "&state=" + URLEncoder.encode(safeState, StandardCharsets.UTF_8);
             }
             log.info("[企微 OAuth] 登录成功，重定向到前端: {}", redirectUrl);
             response.sendRedirect(redirectUrl);
@@ -105,6 +108,31 @@ public class AuthController {
                     + URLEncoder.encode(e.getMessage(), StandardCharsets.UTF_8);
             response.sendRedirect(errorUrl);
         }
+    }
+
+    /**
+     * 校验 state 参数安全性
+     *
+     * <p>仅接受以 "/" 开头的相对路径,且不含 "://" (排除 http:// / javascript: 等),</p>
+     * <p>防止 open redirect 攻击 —— 攻击者可能诱导用户点带恶意 state 的 OAuth 链接。</p>
+     *
+     * @return 合规的 state, 违规返回 null (前端将跳到默认页)
+     */
+    private String sanitizeState(String state) {
+        if (state == null || state.isBlank()) return null;
+        if (!state.startsWith("/")) {
+            log.warn("[企微 OAuth] state 不以 / 开头, 丢弃: {}", state);
+            return null;
+        }
+        if (state.startsWith("//") || state.contains("://")) {
+            log.warn("[企微 OAuth] state 含协议头, 丢弃: {}", state);
+            return null;
+        }
+        if (state.length() > 200) {
+            log.warn("[企微 OAuth] state 过长 ({} chars), 丢弃", state.length());
+            return null;
+        }
+        return state;
     }
 
     /**
