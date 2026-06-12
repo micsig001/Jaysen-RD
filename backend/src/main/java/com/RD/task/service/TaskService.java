@@ -83,6 +83,12 @@ public class TaskService {
             String kw = query.getKeyword().trim();
             wrapper.and(w -> w.like(Task::getTaskNo, kw).or().like(Task::getTitle, kw));
         }
+        // 超期未完成：强制 status IN (PENDING_ACCEPT/IN_PROGRESS/PENDING_VERIFY) AND actual_deadline < now
+        if (Boolean.TRUE.equals(query.getOverdueOnly())) {
+            wrapper.in(Task::getStatus, "PENDING_ACCEPT", "IN_PROGRESS", "PENDING_VERIFY")
+                    .isNotNull(Task::getActualDeadline)
+                    .lt(Task::getActualDeadline, java.time.LocalDateTime.now());
+        }
 
         // 关键：数据权限过滤
         applyDataPermissionFilter(wrapper, currentUser);

@@ -68,6 +68,11 @@ export interface TaskQuery {
   assigneeId?: string
   /** 关键字（匹配 task_no / title） */
   keyword?: string
+  /**
+   * 仅超期未完成（true 时强制 status IN (3 个进行中) AND actual_deadline < now）
+   * 与 status 互斥，true 会覆盖 status
+   */
+  overdueOnly?: boolean
   pageNum?: number
   pageSize?: number
 }

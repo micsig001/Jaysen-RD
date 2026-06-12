@@ -1,6 +1,24 @@
 <template>
   <div class="task-container">
     <el-card shadow="never" class="filter-card">
+      <!-- ========== 快捷过滤 ========== -->
+      <div class="quick-filter">
+        <span class="quick-label">快捷过滤：</span>
+        <el-tag
+          v-for="opt in quickFilterOptions"
+          :key="opt.value"
+          :type="activeQuickFilter === opt.value ? 'primary' : 'info'"
+          :effect="activeQuickFilter === opt.value ? 'dark' : 'plain'"
+          :disable-transitions="true"
+          class="quick-tag"
+          @click="applyQuickFilter(opt.value)"
+        >
+          {{ opt.label }}
+        </el-tag>
+      </div>
+
+      <el-divider class="filter-divider" />
+
       <el-form :inline="true" :model="query" class="filter-form">
         <el-form-item label="状态">
           <el-select v-model="query.status" placeholder="全部" clearable style="width: 160px">
@@ -349,6 +367,49 @@ const query = reactive<TaskQuery>({
   pageSize: 20
 })
 
+// ============== 快捷过滤 ==============
+
+type QuickFilterValue = 'all' | 'mine_created' | 'mine_assigned' | 'overdue'
+
+const quickFilterOptions: { value: QuickFilterValue; label: string }[] = [
+  { value: 'all', label: '全部' },
+  { value: 'mine_created', label: '我创建的' },
+  { value: 'mine_assigned', label: '我接收的' },
+  { value: 'overdue', label: '超期未完成' }
+]
+
+const activeQuickFilter = ref<QuickFilterValue>('all')
+
+/**
+ * 点击快捷标签 → 改 query 的 creatorId/assigneeId/overdueOnly → 立即查
+ */
+function applyQuickFilter(value: QuickFilterValue) {
+  activeQuickFilter.value = value
+  const myUserId = userStore.userInfo?.userId
+
+  // 先清掉快捷过滤字段（避免叠加）
+  query.creatorId = undefined
+  query.assigneeId = undefined
+  query.overdueOnly = false
+
+  switch (value) {
+    case 'all':
+      // 不加 creator/assignee/overdue 过滤
+      break
+    case 'mine_created':
+      query.creatorId = myUserId
+      break
+    case 'mine_assigned':
+      query.assigneeId = myUserId
+      break
+    case 'overdue':
+      query.overdueOnly = true
+      break
+  }
+  query.pageNum = 1
+  fetchList()
+}
+
 async function fetchList() {
   loading.value = true
   try {
@@ -371,6 +432,10 @@ function handleReset() {
   query.status = undefined
   query.priority = undefined
   query.keyword = ''
+  query.creatorId = undefined
+  query.assigneeId = undefined
+  query.overdueOnly = false
+  activeQuickFilter.value = 'all'
   query.pageNum = 1
   fetchList()
 }
@@ -658,6 +723,25 @@ const cancelTarget = ref<TaskVO | null>(null)
 }
 .filter-form {
   margin-bottom: -16px;
+}
+.quick-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 4px 0;
+}
+.quick-label {
+  color: #606266;
+  font-size: 14px;
+  margin-right: 4px;
+}
+.quick-tag {
+  cursor: pointer;
+  user-select: none;
+}
+.filter-divider {
+  margin: 12px 0 16px 0;
 }
 .pagination {
   margin-top: 16px;
