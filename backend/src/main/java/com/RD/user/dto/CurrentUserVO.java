@@ -1,7 +1,5 @@
 package com.RD.user.dto;
 
-import com.RD.privacy.SensitiveData;
-import com.RD.privacy.SensitiveType;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
@@ -12,15 +10,15 @@ import java.time.LocalDateTime;
  *
  * <p>用于 {@code GET /api/users/me}，由 JWT 解析的 userId 查出完整用户信息后返回。</p>
  *
- * <p>敏感字段（mobile / email）由 {@code SensitiveDataAspect} 在 Controller 返回时自动脱敏：
- * 仅本人/ADMIN 可见明文，其他用户看到脱敏值。</p>
+ * <p>注：脱敏注解 {@code @SensitiveData} 当前未启用（Phase 2 暂不需要），
+ * 后续如需对 mobile/email 脱敏，在字段上重新加 {@code @SensitiveData(type = ...)} 即可。</p>
  */
 @Data
 public class CurrentUserVO {
 
     private Long id;
 
-    /** 企微 UserID —— 切面"本人"豁免靠字段名 == userId 严格匹配 */
+    /** 企微 UserID */
     private String userId;
 
     /** 姓名 */
@@ -29,12 +27,10 @@ public class CurrentUserVO {
     /** 头像 URL */
     private String avatarUrl;
 
-    /** 手机号（脱敏：仅本人/ADMIN 见明文） */
-    @SensitiveData(type = SensitiveType.MOBILE)
+    /** 手机号 */
     private String mobile;
 
-    /** 邮箱（脱敏：仅本人/ADMIN 见明文） */
-    @SensitiveData(type = SensitiveType.EMAIL)
+    /** 邮箱 */
     private String email;
 
     /** 部门 ID */

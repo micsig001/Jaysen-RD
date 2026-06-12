@@ -11,18 +11,13 @@ import request from '@/utils/request'
 
 /**
  * 当前登录用户 VO —— 对应后端 {@code CurrentUserVO}
- *
- * <p>mobile / email 字段已脱敏：
- * 仅本人/ADMIN 可见明文，其他用户看到 {@code 138****8000} / {@code a***@x.com}。</p>
  */
 export interface CurrentUserVO {
   id: number
   userId: string
   name: string
   avatarUrl?: string
-  /** 手机号（脱敏后） */
   mobile?: string
-  /** 邮箱（脱敏后） */
   email?: string
   departmentId?: number
   departmentName?: string

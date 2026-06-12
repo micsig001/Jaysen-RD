@@ -28,13 +28,12 @@ import java.util.stream.Collectors;
  *
  * <p>范围：</p>
  * <ul>
- *   <li>当前用户信息（{@code /api/users/me}）—— mobile/email 走 {@code @SensitiveData} 切面脱敏</li>
+ *   <li>当前用户信息（{@code /api/users/me}）</li>
  *   <li>用户分页查询（{@code /api/users}）—— 仅 ADMIN/MANAGER 可访问</li>
  *   <li>部门列表（{@code /api/departments}）—— 公开给所有登录用户</li>
  * </ul>
  *
- * <p>脱敏在 VO 字段上声明，{@code SensitiveDataAspect} 在 Controller 返回时统一处理，
- * Service 层不感知脱敏逻辑。</p>
+ * <p>脱敏（{@code @SensitiveData}）当前未启用，Phase 2 后续如需可加在 VO 字段上。</p>
  */
 @Slf4j
 @Service
