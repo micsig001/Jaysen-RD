@@ -83,8 +83,14 @@ const router = createRouter({
         {
           path: 'rd/ecn',
           name: 'RdEcn',
-          component: () => import('@/views/PlaceholderView.vue'),
+          component: () => import('@/views/ecn/EcnListView.vue'),
           meta: { title: '工程变更 ECN', module: 'rd', phase: 'P2' }
+        },
+        {
+          path: 'rd/ecn/:id',
+          name: 'RdEcnDetail',
+          component: () => import('@/views/ecn/EcnDetailView.vue'),
+          meta: { title: 'ECN 详情', module: 'rd', phase: 'P2' }
         },
         {
           path: 'rd/defects',

@@ -152,6 +152,28 @@ public class EcnService {
     }
 
     /**
+     * 通过 ecn_number 查 ECN 详情（带权限校验）
+     *
+     * <p>给 Flowable TaskListener / TaskService 用 —— BPMN business key 是 ecn_number。</p>
+     */
+    public EcnChangeVO getEcnByEcnNumber(String ecnNumber, SysUser currentUser) {
+        if (!StringUtils.hasText(ecnNumber)) {
+            throw BusinessException.badRequest("ecnNumber 不能为空");
+        }
+        EcnChange ecn = ecnChangeMapper.selectOne(
+                new LambdaQueryWrapper<EcnChange>()
+                        .eq(EcnChange::getEcnNumber, ecnNumber)
+                        .last("LIMIT 1"));
+        if (ecn == null) {
+            return null;
+        }
+        if (!hasDataPermission(ecn, currentUser)) {
+            return null;
+        }
+        return toChangeVO(ecn, lookupName(ecn.getRequesterUserid()));
+    }
+
+    /**
      * ECN 审批记录列表
      */
     public List<EcnApprovalVO> listApprovals(Long ecnId, SysUser currentUser) {
