@@ -77,7 +77,7 @@ const router = createRouter({
         {
           path: 'rd/bom',
           name: 'RdBom',
-          component: () => import('@/views/PlaceholderView.vue'),
+          component: () => import('@/views/bom/BomTreeView.vue'),
           meta: { title: 'BOM 管理', module: 'rd', phase: 'P3' }
         },
         {
