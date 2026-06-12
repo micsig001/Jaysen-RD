@@ -11,6 +11,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * 企业微信认证服务
@@ -33,10 +35,15 @@ public class WeWorkAuthService {
     private final SysUserMapper userMapper;
 
     /**
+     * 登录返回的 Token 集合（access + refresh）
+     */
+    public record TokenPair(String accessToken, String refreshToken) { }
+
+    /**
      * 通过企微授权码进行登录
      */
     @Transactional(rollbackFor = Exception.class)
-    public String loginByCode(String code) {
+    public TokenPair loginByCode(String code) {
         // 1. 通过授权码获取用户 ID
         JsonNode userInfo = weWorkApiClient.getUserInfoByCode(code);
         if (userInfo == null || !userInfo.has("UserId")) {
@@ -61,15 +68,16 @@ public class WeWorkAuthService {
             throw new BusinessException(403, "账号已被禁用，请联系管理员");
         }
 
-        // 5. 生成 JWT Token
+        // 5. 生成 access + refresh Token
         String accessToken = jwtTokenProvider.generateAccessToken(
                 user.getUserId(),
                 user.getName(),
                 user.getRole()
         );
+        String refreshToken = jwtTokenProvider.generateRefreshToken(user.getUserId());
 
         log.info("用户 {} 登录成功", user.getName());
-        return accessToken;
+        return new TokenPair(accessToken, refreshToken);
     }
 
     /**
@@ -125,9 +133,9 @@ public class WeWorkAuthService {
     }
 
     /**
-     * 刷新 Token
+     * 刷新 Token（access + refresh 同时轮换）
      */
-    public String refreshToken(String refreshToken) {
+    public TokenPair refreshToken(String refreshToken) {
         // validateToken 在 token 无效/过期时抛 IllegalArgumentException，原先 `if (... == null)` 是死代码
         // 现在显式捕获并转为 401
         try {
@@ -148,6 +156,20 @@ public class WeWorkAuthService {
             throw new BusinessException(403, "账号已被禁用");
         }
 
-        return jwtTokenProvider.generateAccessToken(user.getUserId(), user.getName(), user.getRole());
+        String newAccess = jwtTokenProvider.generateAccessToken(user.getUserId(), user.getName(), user.getRole());
+        String newRefresh = jwtTokenProvider.generateRefreshToken(user.getUserId());
+        return new TokenPair(newAccess, newRefresh);
+    }
+
+    /**
+     * 为旧版单 token 接口保留的 Map 形式（仅向后兼容 — 新代码请用 TokenPair）
+     */
+    public Map<String, String> loginByCodeAsMap(String code) {
+        TokenPair pair = loginByCode(code);
+        Map<String, String> m = new HashMap<>();
+        m.put("access_token", pair.accessToken());
+        m.put("refresh_token", pair.refreshToken());
+        m.put("token_type", "Bearer");
+        return m;
     }
 }

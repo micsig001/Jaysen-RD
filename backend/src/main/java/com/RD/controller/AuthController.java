@@ -63,11 +63,7 @@ public class AuthController {
         }
 
         try {
-            String accessToken = weWorkAuthService.loginByCode(code);
-            Map<String, String> response = new HashMap<>();
-            response.put("access_token", accessToken);
-            response.put("token_type", "Bearer");
-            return Result.success(response);
+            return Result.success(weWorkAuthService.loginByCodeAsMap(code));
         } catch (Exception e) {
             log.error("登录失败", e);
             return Result.error(401, e.getMessage());
@@ -94,9 +90,10 @@ public class AuthController {
         String safeState = sanitizeState(state);
 
         try {
-            String accessToken = weWorkAuthService.loginByCode(code);
+            WeWorkAuthService.TokenPair pair = weWorkAuthService.loginByCode(code);
             String redirectUrl = frontendBaseUrl + "/login/callback"
-                    + "?token=" + URLEncoder.encode(accessToken, StandardCharsets.UTF_8);
+                    + "?token=" + URLEncoder.encode(pair.accessToken(), StandardCharsets.UTF_8)
+                    + "&refresh_token=" + URLEncoder.encode(pair.refreshToken(), StandardCharsets.UTF_8);
             if (safeState != null) {
                 redirectUrl += "&state=" + URLEncoder.encode(safeState, StandardCharsets.UTF_8);
             }
@@ -146,9 +143,10 @@ public class AuthController {
         }
 
         try {
-            String accessToken = weWorkAuthService.refreshToken(refreshToken);
+            WeWorkAuthService.TokenPair pair = weWorkAuthService.refreshToken(refreshToken);
             Map<String, String> response = new HashMap<>();
-            response.put("access_token", accessToken);
+            response.put("access_token", pair.accessToken());
+            response.put("refresh_token", pair.refreshToken());
             response.put("token_type", "Bearer");
             return Result.success(response);
         } catch (Exception e) {

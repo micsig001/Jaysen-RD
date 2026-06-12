@@ -38,7 +38,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Loading, CircleCheck, CircleClose } from '@element-plus/icons-vue'
-import { setToken, getToken } from '@/utils/request'
+import { setToken, setRefreshToken, getToken } from '@/utils/request'
 import { useUserStore } from '@/stores/user'
 
 type CallbackStatus = 'processing' | 'success' | 'error'
@@ -99,6 +99,7 @@ async function processCallback() {
 
   // 1) 拿 token
   const token = route.query.token as string | undefined
+  const refreshToken = route.query.refresh_token as string | undefined
   const errorParam = route.query.error as string | undefined
 
   // 2) 错误优先 (后端 OAuth 失败时跳到 /login/callback?error=xxx, 但实际是 /login?error=...)
@@ -109,8 +110,11 @@ async function processCallback() {
     return
   }
 
-  // 3) 存 token
+  // 3) 存 token (access + refresh)
   setToken(token)
+  if (refreshToken) {
+    setRefreshToken(refreshToken)
+  }
   // 重复登录时 request.ts 已经有 token, 不影响
 
   // 4) 拉 /api/users/me
