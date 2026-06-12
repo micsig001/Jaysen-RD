@@ -1,0 +1,104 @@
+# ============================================
+# .gitignore — 仪器研发管理系统
+# ============================================
+
+# ===== Java / Maven =====
+target/
+*.class
+*.jar
+*.war
+*.ear
+.mvn/
+mvnw
+mvnw.cmd
+.idea/
+.vscode/
+.classpath
+.project
+.settings/
+*.iml
+*.iws
+*.ipr
+
+# ===== Spring Boot =====
+HELP.md
+application-*.yml
+!application-dev.yml
+!application-prod.yml
+application-local.yml
+application-local.yaml
+application-local.properties
+
+# ===== Node / 前端 =====
+node_modules/
+dist/
+dist-ssr/
+.cache/
+.vite/
+*.log
+.npm
+.eslintcache
+.yarn-integrity
+coverage/
+
+# vue-tsc 编译产物（Vite 用 ESBuild，不需要 .js 旁车）
+*.vue.js
+*.vue.js.map
+src/**/*.js
+src/**/*.js.map
+
+# ===== IDE =====
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+$RECYCLE.BIN/
+
+# ===== Docker / 数据 =====
+mysql-data/
+redis-data/
+uploads/
+*.pid
+
+# ===== 密钥 / 环境 =====
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+*.p12
+*.pfx
+secrets/
+*.secret
+
+# ===== 临时文件 =====
+*.tmp
+*.bak
+*.swp
+*.orig
+*.rej
+*~
+*.sublime-project
+*.sublime-workspace
+
+# ===== 日志 =====
+logs/
+*.log
+spring.log
+
+# ===== 测试产物 =====
+test-output/
+test-results/
+jacoco/
+coverage/
+.nyc_output/
+
+# ===== Flyway 修复（不要提交） =====
+flyway.conf
+flyway-local.conf
+
+# ===== Flowable 流程定义临时 =====
+src/main/resources/processes/.backup/

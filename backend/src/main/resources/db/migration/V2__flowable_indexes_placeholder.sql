@@ -1,0 +1,18 @@
+-- ============================================
+-- V2: Flowable 7.1.0 业务索引（占位）
+-- ============================================
+-- 时序约束：Flyway 在 Spring Bean 初始化早期跑，**早于** Flowable 引擎启动。
+-- 如果在这里直接 ALTER ACT_* 表，会因为 Flowable 还没建表而失败。
+--
+-- 解决方式：V2 留空；业务级 Flowable 索引放到 FlowableConfig.java 的
+-- @PostConstruct 里用 JdbcTemplate 动态检查 + 创建（带 IF NOT EXISTS）。
+-- 这样能保证：
+--   1. Flowable 先建好 ACT_* 表
+--   2. 我们的业务索引才追加
+--   3. 重启时不会重复创建报错
+--
+-- Phase 2 写 FlowableConfig 时会实现这块，详见 PROJECT_STATE.md §3 Phase 2。
+-- ============================================
+
+-- 本文件故意留空，作为占位保证 Flyway 顺序连续。
+-- Phase 2 引入 FlowableConfig 后，本文件可删除。
