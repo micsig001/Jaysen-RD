@@ -206,6 +206,41 @@
         <el-descriptions-item label="创建时间">{{ formatDateTime(currentTask.createdAt) }}</el-descriptions-item>
         <el-descriptions-item label="更新时间">{{ formatDateTime(currentTask.updatedAt) }}</el-descriptions-item>
       </el-descriptions>
+
+      <!-- ========== 状态流转历史时间线 ========== -->
+      <el-divider>状态流转历史</el-divider>
+      <div v-loading="historyLoading" class="history-section">
+        <el-empty v-if="!historyLoading && historyList.length === 0" description="暂无流转记录" :image-size="80" />
+        <el-timeline v-else>
+          <el-timeline-item
+            v-for="h in historyList"
+            :key="h.id"
+            :type="timelineType(h.toStatus)"
+            :timestamp="formatDateTime(h.createdAt)"
+            :hollow="historyList[historyList.length - 1]?.id !== h.id"
+            placement="top"
+          >
+            <div class="history-row">
+              <span class="history-status">
+                <el-tag v-if="h.fromStatus" :type="statusTagType(h.fromStatus)" size="small">
+                  {{ statusLabel(h.fromStatus) }}
+                </el-tag>
+                <el-icon v-else class="history-icon"><Plus /></el-icon>
+                <el-icon class="history-arrow"><Right /></el-icon>
+                <el-tag :type="statusTagType(h.toStatus)" size="small">
+                  {{ statusLabel(h.toStatus) }}
+                </el-tag>
+              </span>
+              <span class="history-operator">
+                {{ h.operatorName || h.operatorId }}
+              </span>
+            </div>
+            <div v-if="h.remark" class="history-remark">
+              {{ h.remark }}
+            </div>
+          </el-timeline-item>
+        </el-timeline>
+      </div>
       <template #footer>
         <el-button @click="detailDialogVisible = false">关闭</el-button>
       </template>
@@ -276,7 +311,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import { Search, Refresh, Plus } from '@element-plus/icons-vue'
+import { Search, Refresh, Plus, Right } from '@element-plus/icons-vue'
 import {
   listTasks,
   getTask,
@@ -286,13 +321,15 @@ import {
   completeTask,
   rejectTask,
   cancelTask,
+  listTaskHistory,
   TASK_STATUSES,
   TASK_PRIORITIES,
   type TaskVO,
   type TaskQuery,
   type TaskStatus,
   type TaskPriority,
-  type CreateTaskRequest
+  type CreateTaskRequest,
+  type TaskStatusHistoryVO
 } from '@/api/task'
 import { useUserStore } from '@/stores/user'
 
@@ -343,9 +380,31 @@ async function handleView(row: TaskVO) {
     const res = await getTask(row.id)
     currentTask.value = res.data
     detailDialogVisible.value = true
+    // 详情打开后异步拉历史
+    fetchHistory(row.id)
   } catch (e) {
     /* ignore */
   }
+}
+
+async function fetchHistory(taskId: number) {
+  historyLoading.value = true
+  historyList.value = []
+  try {
+    const res = await listTaskHistory(taskId)
+    historyList.value = res.data
+  } catch (e) {
+    /* ignore */
+  } finally {
+    historyLoading.value = false
+  }
+}
+
+/**
+ * 时间线颜色：最新一条用 primary 突出，历史用普通色
+ */
+function timelineType(s: TaskStatus): 'primary' | 'success' | 'warning' | 'info' | 'danger' {
+  return statusTagType(s) as any
 }
 
 // ============== 标签映射 ==============
@@ -463,6 +522,8 @@ async function handleCreateSubmit() {
 
 const detailDialogVisible = ref(false)
 const currentTask = ref<TaskVO | null>(null)
+const historyList = ref<TaskStatusHistoryVO[]>([])
+const historyLoading = ref(false)
 
 // ============== 初始化 ==============
 
@@ -624,5 +685,43 @@ const cancelTarget = ref<TaskVO | null>(null)
 .task-ref {
   color: #606266;
   font-size: 13px;
+}
+.history-section {
+  max-height: 360px;
+  overflow-y: auto;
+  padding: 0 4px;
+}
+.history-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.history-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.history-icon {
+  color: #909399;
+  font-size: 14px;
+}
+.history-arrow {
+  color: #c0c4cc;
+  font-size: 12px;
+}
+.history-operator {
+  color: #606266;
+  font-size: 13px;
+}
+.history-remark {
+  margin-top: 4px;
+  color: #909399;
+  font-size: 12px;
+  background: #f5f7fa;
+  padding: 6px 10px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 </style>

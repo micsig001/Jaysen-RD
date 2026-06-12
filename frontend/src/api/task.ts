@@ -163,3 +163,30 @@ export function rejectTask(id: number, reason: string) {
 export function cancelTask(id: number, reason?: string) {
   return request<void>({ url: `/tasks/${id}/cancel`, method: 'post', data: { reason } })
 }
+
+// ============================================
+// 状态历史（Phase 2.5+ 接入）
+// ============================================
+
+/**
+ * 任务状态历史 VO —— 对应后端 {@code TaskStatusHistoryVO}
+ */
+export interface TaskStatusHistoryVO {
+  id: number
+  taskId: number
+  /** 原状态（创建时为 null） */
+  fromStatus?: TaskStatus | null
+  /** 新状态 */
+  toStatus: TaskStatus
+  operatorId: string
+  operatorName?: string
+  remark?: string
+  createdAt: string
+}
+
+/**
+ * 任务状态流转历史（按时间正序，最早在前）
+ */
+export function listTaskHistory(id: number) {
+  return request<TaskStatusHistoryVO[]>({ url: `/tasks/${id}/history`, method: 'get' })
+}
