@@ -51,22 +51,23 @@
 
       <el-divider>其他登录方式</el-divider>
 
-      <!-- ========== 企微 OAuth 按钮（占位，Phase 3 接入） ========== -->
+      <!-- ========== 企微 OAuth 按钮（dev / test 环境禁用） ========== -->
       <el-button
         type="success"
         size="large"
         :icon="ChatDotRound"
+        :disabled="!weworkConfigReady"
         class="wework-btn"
-        disabled
         @click="handleWeWorkLogin"
       >
-        企业微信登录（Phase 3 接入）
+        {{ weworkConfigReady ? '企业微信登录' : '企业微信登录（未配置 corpId）' }}
       </el-button>
 
       <div class="login-tip">
         <el-text type="info" size="small">
           <p>当前为 dev 模式：通过后端 <code>POST /api/auth/dev-login</code> 绕过企微 OAuth。</p>
-          <p>企微登录将在 <strong>Phase 3</strong> 接入 corpId / agentId 后启用。</p>
+          <p>企微登录：生产环境需在 <code>.env.production</code> 配置
+            <code>VITE_WEWORK_CORP_ID</code> / <code>VITE_WEWORK_AGENT_ID</code> / <code>VITE_WEWORK_OAUTH_REDIRECT_URI</code>。</p>
         </el-text>
       </div>
     </el-card>
@@ -74,11 +75,16 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { User, ChatDotRound } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
+
+// dev 环境轻量日志 (避免引入完整 logger)
+const log = {
+  info: (msg: string, ...args: unknown[]) => console.info('[LoginView]', msg, ...args)
+}
 
 const route = useRoute()
 const router = useRouter()
@@ -108,8 +114,50 @@ async function handleLogin() {
   }
 }
 
+/**
+ * 企微登录按钮可用性：3 个环境变量都配了才激活
+ */
+const weworkConfigReady = computed(() => {
+  return Boolean(
+    import.meta.env.VITE_WEWORK_CORP_ID &&
+    import.meta.env.VITE_WEWORK_AGENT_ID &&
+    import.meta.env.VITE_WEWORK_OAUTH_REDIRECT_URI
+  )
+})
+
+/**
+ * 跳转企微 OAuth 授权页
+ *
+ * <p>企微 OAuth 流程：</p>
+ * <ol>
+ *   <li>前端跳到 https://open.weixin.qq.com/connect/oauth2/authorize?appid={corpId}&redirect_uri={redirect}&response_type=code&scope=snsapi_base&state={state}#wechat_redirect</li>
+ *   <li>用户授权后企微重定向到 redirect_uri 携带 code (这里指向后端 /api/auth/wework/callback)</li>
+ *   <li>后端用 code 换 userid + 同步用户 + 签发 JWT, 然后重定向到前端 /login/callback?token=...</li>
+ *   <li>前端 /login/callback 页面读 token 存 localStorage + 拉 /api/users/me</li>
+ * </ol>
+ */
 function handleWeWorkLogin() {
-  ElMessage.info('企微登录将在 Phase 3 接入')
+  if (!weworkConfigReady.value) {
+    ElMessage.warning('当前环境未配置企微登录信息（VITE_WEWORK_CORP_ID 等）')
+    return
+  }
+  const corpId = import.meta.env.VITE_WEWORK_CORP_ID
+  const agentId = import.meta.env.VITE_WEWORK_AGENT_ID
+  const redirectUri = encodeURIComponent(import.meta.env.VITE_WEWORK_OAUTH_REDIRECT_URI)
+  // state 用当前 redirect 参数, 让 OAuth 流程能回到原页面
+  const state = encodeURIComponent((route.query.redirect as string) || '/')
+  const oauthUrl =
+    `https://open.weixin.qq.com/connect/oauth2/authorize` +
+    `?appid=${corpId}` +
+    `&redirect_uri=${redirectUri}` +
+    `&response_type=code` +
+    `&scope=snsapi_base` +
+    `&agentid=${agentId}` +
+    `&state=${state}` +
+    `#wechat_redirect`
+  log.info('跳转企微 OAuth', oauthUrl)
+  // 整页跳转到企微
+  window.location.href = oauthUrl
 }
 </script>
 

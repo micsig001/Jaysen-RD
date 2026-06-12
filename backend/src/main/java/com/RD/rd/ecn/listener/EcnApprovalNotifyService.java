@@ -4,23 +4,26 @@ import com.RD.entity.EcnChange;
 import com.RD.entity.SysUser;
 import com.RD.mapper.EcnChangeMapper;
 import com.RD.mapper.SysUserMapper;
+import com.RD.wework.WeWorkMessageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
- * ECN 审批通知服务（Phase 2.6 阶段占位）
+ * ECN 审批通知服务
  *
- * <p>当前仅写日志。后续接入 {@code WeWorkMessageService} 后，把 log.info 替换成实际的企微应用消息推送。</p>
- *
- * <p>为什么用占位：</p>
+ * <p>封装企微应用消息推送：</p>
  * <ul>
- *   <li>不依赖 wework 模块（即使 wework 没配 corpId 也能跑）</li>
- *   <li>{@code @Value} 注入配置 + log 兜底，让本地 dev 立刻能验证通知触发点</li>
+ *   <li>{@code notifyTaskAssigned} — 任务分配通知（给审批人），用文本卡片带详情链接</li>
+ *   <li>{@code notifyApprovalResult} — 审批结果通知（给发起人），纯文本</li>
+ *   <li>{@code notifyImplemented} — 实施完成通知（给发起人），纯文本</li>
  * </ul>
  *
- * <p>开关：{@code wework.message.enabled} — false 时全走 log 跳过通知。</p>
+ * <p>dev/test 环境（{@code wework.message.enabled=false} 或 {@code @Profile("dev | test")} 下），
+ * 自动走 {@code WeWorkApiClient} 的 Fake 实现，log 模拟消息发送但不发真网络请求。</p>
+ *
+ * <p>关闭开关: {@code wework.message.enabled=false}（仅 log 不发）。</p>
  */
 @Slf4j
 @Service
@@ -29,20 +32,17 @@ public class EcnApprovalNotifyService {
 
     private final EcnChangeMapper ecnChangeMapper;
     private final SysUserMapper userMapper;
+    private final WeWorkMessageService weWorkMessageService;
 
     @Value("${wework.message.enabled:true}")
     private boolean weworkMessageEnabled;
 
     /**
-     * 任务分配通知（给审批人）
-     *
-     * @param ecnId          ECN 主键
-     * @param approverUserId 审批人 UserID
-     * @param taskName       任务名（如 "部门负责人审批" / "技术总工审批"）
+     * 任务分配通知（给审批人）—— 文本卡片，点击跳详情页
      */
     public void notifyTaskAssigned(Long ecnId, String approverUserId, String taskName) {
         if (!weworkMessageEnabled) {
-            log.debug("[ECN 通知-关闭] 跳过任务分配通知 ecnId={} approver={}", ecnId, approverUserId);
+            log.debug("[ECN 通知-关闭] 跳过任务分配 ecnId={} approver={}", ecnId, approverUserId);
             return;
         }
         EcnChange ecn = ecnChangeIdSafe(ecnId);
@@ -51,51 +51,64 @@ public class EcnApprovalNotifyService {
         SysUser approver = userMapper.selectByUserId(approverUserId);
         String approverName = approver != null ? approver.getName() : approverUserId;
 
-        // TODO Phase 3+: 接入 WeWorkMessageService.sendAppMessage(approverUserId, content)
-        log.info("[ECN 通知-任务分配] 任务={} 审批人={} ECN={} 编号={} 标题='{}' 紧急度={}",
-                taskName, approverName, ecn.getId(), ecn.getEcnNumber(),
-                ecn.getTitle(), ecn.getUrgency());
+        String title = "您有新的 ECN 待审批";
+        String description = String.format(
+                "编号: %s%n标题: %s%n紧急度: %s%n任务: %s",
+                ecn.getEcnNumber(),
+                ecn.getTitle(),
+                ecn.getUrgency(),
+                taskName
+        );
+        // 详情链接: 企微应用内打开 (后续可拼上 wework.oauth 配置的真实 URL)
+        String url = "https://example.com/rd/ecn/" + ecn.getId();
 
-        // 实际推送时 content 示例:
-        // 您有新的 ECN 待审批
-        // 编号: ECN202606120001
-        // 标题: 频谱分析仪主板BOM变更
-        // 紧急度: 紧急
-        // 截止: 2026-06-25
-        // 点击查看详情: https://rd.example.com/rd/ecn/{id}
+        boolean ok = weWorkMessageService.sendTextcard(approverUserId, title, description, url, "查看详情");
+        log.info("[ECN 通知-任务分配] ecnId={} approver={} task={} 发送结果={}",
+                ecnId, approverName, taskName, ok ? "成功" : "失败");
     }
 
     /**
-     * 审批结果通知（给发起人）
-     *
-     * @param ecnId          ECN 主键
-     * @param approverName   审批人姓名
-     * @param approved       true=通过 / false=驳回
-     * @param comment        审批意见
+     * 审批结果通知（给发起人）—— 纯文本
      */
     public void notifyApprovalResult(Long ecnId, String approverName, boolean approved, String comment) {
         if (!weworkMessageEnabled) {
-            log.debug("[ECN 通知-关闭] 跳过结果通知 ecnId={}", ecnId);
+            log.debug("[ECN 通知-关闭] 跳过结果 ecnId={}", ecnId);
             return;
         }
         EcnChange ecn = ecnChangeIdSafe(ecnId);
         if (ecn == null) return;
 
         String resultText = approved ? "通过" : "驳回";
-        log.info("[ECN 通知-审批结果] ECN={} 编号={} 标题='{}' {} 审批人={} 意见='{}'",
-                ecn.getId(), ecn.getEcnNumber(), ecn.getTitle(),
-                resultText, approverName, comment);
+        String content = String.format(
+                "您的 ECN 已%s%n编号: %s%n标题: %s%n审批人: %s%s",
+                resultText,
+                ecn.getEcnNumber(),
+                ecn.getTitle(),
+                approverName,
+                comment != null && !comment.isBlank() ? "%n意见: " + comment : ""
+        );
+        boolean ok = weWorkMessageService.sendText(ecn.getRequesterUserid(), content);
+        log.info("[ECN 通知-审批结果] ecnId={} result={} approver={} 发送结果={}",
+                ecnId, resultText, approverName, ok ? "成功" : "失败");
     }
 
     /**
      * 实施完成通知（给发起人）
      */
     public void notifyImplemented(Long ecnId) {
-        if (!weworkMessageEnabled) return;
+        if (!weworkMessageEnabled) {
+            log.debug("[ECN 通知-关闭] 跳过实施完成 ecnId={}", ecnId);
+            return;
+        }
         EcnChange ecn = ecnChangeIdSafe(ecnId);
         if (ecn == null) return;
-        log.info("[ECN 通知-实施完成] ECN={} 编号={} 标题='{}'",
-                ecn.getId(), ecn.getEcnNumber(), ecn.getTitle());
+
+        String content = String.format(
+                "您的 ECN 已标记为实施完成%n编号: %s%n标题: %s",
+                ecn.getEcnNumber(), ecn.getTitle()
+        );
+        boolean ok = weWorkMessageService.sendText(ecn.getRequesterUserid(), content);
+        log.info("[ECN 通知-实施完成] ecnId={} 发送结果={}", ecnId, ok ? "成功" : "失败");
     }
 
     /**
