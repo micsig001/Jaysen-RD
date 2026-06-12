@@ -15,7 +15,7 @@ const router = createRouter({
         {
           path: 'tasks',
           name: 'TaskList',
-          component: () => import('@/views/PlaceholderView.vue'),
+          component: () => import('@/views/task/TaskListView.vue'),
           meta: { title: '我的任务', module: 'task' }
         },
         {

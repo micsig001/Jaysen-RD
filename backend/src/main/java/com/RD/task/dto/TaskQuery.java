@@ -1,0 +1,35 @@
+package com.RD.task.dto;
+
+import lombok.Data;
+
+/**
+ * 任务查询参数
+ *
+ * <p>对应 {@code GET /api/tasks} 分页参数。数据范围由角色自动过滤：</p>
+ * <ul>
+ *   <li>ADMIN：全部</li>
+ *   <li>MANAGER：本部门成员作为创建者/接收者的任务</li>
+ *   <li>EMPLOYEE：仅自己作为创建者/接收者的任务</li>
+ * </ul>
+ */
+@Data
+public class TaskQuery {
+
+    /** 状态过滤 */
+    private String status;
+
+    /** 优先级过滤（1-4） */
+    private Integer priority;
+
+    /** 创建人 UserID 精确过滤 */
+    private String creatorId;
+
+    /** 接收人 UserID 精确过滤 */
+    private String assigneeId;
+
+    /** 关键字（匹配 task_no / title） */
+    private String keyword;
+
+    private Integer pageNum = 1;
+    private Integer pageSize = 20;
+}
