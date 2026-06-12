@@ -104,7 +104,7 @@
           </el-tag>
           <el-dropdown @command="handleCommand">
             <span class="user-info">
-              <el-avatar :size="32" :src="userStore.userInfo?.avatar" />
+              <el-avatar :size="32" :src="userStore.userInfo?.avatarUrl" />
               <span class="username">{{ userStore.userInfo?.name || '未登录' }}</span>
             </span>
             <template #dropdown>
@@ -192,6 +192,7 @@ import {
   PieChart
 } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
+import { logout } from '@/api/auth'
 
 // 路由 + Store
 const route = useRoute()
@@ -237,6 +238,11 @@ const handleResize = () => {
 
 onMounted(() => {
   window.addEventListener('resize', handleResize)
+  // 拉取当前用户信息（GET /api/users/me）
+  // 失败时 request.ts 拦截器已清 token + 跳 /login
+  userStore.fetchUserInfo().catch(() => {
+    /* 已由拦截器处理 */
+  })
 })
 
 onUnmounted(() => {
@@ -259,8 +265,13 @@ const handleCommand = async (command: string) => {
     } catch {
       return
     }
-    // Phase 2 接入：const { removeToken } = await import('@/utils/request')
-    userStore.clearUserInfo()
+    // 后端 logout（非阻塞；token 进黑名单）+ 前端清状态
+    try {
+      await logout()
+    } catch (e) {
+      console.warn('[logout] 后端登出失败, 继续清前端', e)
+    }
+    userStore.logoutLocal()
     ElMessage.success('已退出登录')
     router.push('/login')
   }

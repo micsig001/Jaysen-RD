@@ -101,19 +101,19 @@ const router = createRouter({
       ]
     },
 
-    // ============== 登录（Phase 2 接入企微 OAuth） ==============
+    // ============== 登录（dev 模式直登，企微 OAuth Phase 3 接入） ==============
     {
       path: '/login',
       name: 'Login',
-      component: () => import('@/views/PlaceholderView.vue'),
+      component: () => import('@/views/LoginView.vue'),
       meta: { title: '登录', isPublic: true }
     },
 
-    // ============== 企微 OAuth 回调接收页 ==============
+    // ============== 企微 OAuth 回调接收页（Phase 3 接入） ==============
     {
       path: '/login/callback',
       name: 'LoginCallback',
-      component: () => import('@/views/PlaceholderView.vue'),
+      component: () => import('@/views/LoginView.vue'),
       meta: { title: '登录中...', isPublic: true }
     },
 
