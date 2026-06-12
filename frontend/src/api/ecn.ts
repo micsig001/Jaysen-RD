@@ -135,6 +135,10 @@ export function cancelEcn(id: number) {
   return request<EcnChangeVO>({ url: `/ecn/${id}/cancel`, method: 'post' })
 }
 
+export function implementEcn(id: number) {
+  return request<EcnChangeVO>({ url: `/ecn/${id}/implement`, method: 'post' })
+}
+
 // ========== Flowable Task 操作 ==========
 
 /**

@@ -2,6 +2,15 @@
   <div class="ecn-detail">
     <el-page-header :icon="ArrowLeft" content="返回 ECN 列表" @back="goBack" class="page-header" />
 
+    <!-- 企微通知未接入提示横幅 -->
+    <el-alert
+      title="企微应用消息通知（任务分配 / 审批结果）当前仅记录日志，未真实推送"
+      type="info"
+      :closable="false"
+      show-icon
+      class="notice-banner"
+    />
+
     <el-card v-if="ecn" shadow="never" class="info-card">
       <template #header>
         <div class="card-header">
@@ -36,6 +45,15 @@
               @click="handleCancel"
             >
               撤回
+            </el-button>
+            <el-button
+              v-if="ecn.status === 'APPROVED' && isOwnOrAdmin"
+              type="success"
+              :icon="Select"
+              :loading="actionLoading.implement"
+              @click="handleImplement"
+            >
+              标记实施完成
             </el-button>
           </div>
         </div>
@@ -135,12 +153,13 @@
 import { ref, computed, onMounted, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft, Promotion, CircleClose, Check, Close } from '@element-plus/icons-vue'
+import { ArrowLeft, Promotion, CircleClose, Check, Close, Select } from '@element-plus/icons-vue'
 import {
   getEcn,
   listEcnApprovals,
   submitEcn,
   cancelEcn,
+  implementEcn,
   listMyPendingEcnTasks,
   claimEcnTask,
   completeEcnTask,
@@ -167,6 +186,7 @@ const approvalComment = ref('')
 const actionLoading = reactive({
   submit: false,
   cancel: false,
+  implement: false,
   complete: false
 })
 
@@ -315,6 +335,26 @@ async function handleCancel() {
   }
 }
 
+async function handleImplement() {
+  try {
+    await ElMessageBox.confirm(
+      '确认此 ECN 已实施完成？此操作不可撤销。',
+      '标记实施完成',
+      { type: 'success', confirmButtonText: '确认', cancelButtonText: '取消' }
+    )
+  } catch { return }
+  actionLoading.implement = true
+  try {
+    const res = await implementEcn(ecnId.value)
+    ElMessage.success('已标记实施完成')
+    ecn.value = res.data
+  } catch (e) {
+    /* ignore */
+  } finally {
+    actionLoading.implement = false
+  }
+}
+
 async function handleComplete(approved: boolean) {
   if (!myTask.value) {
     ElMessage.error('未找到待办任务')
@@ -363,6 +403,9 @@ onMounted(() => {
   padding: 0;
 }
 .page-header {
+  margin-bottom: 16px;
+}
+.notice-banner {
   margin-bottom: 16px;
 }
 .info-card,

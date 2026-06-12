@@ -36,14 +36,15 @@
       <documentation>
         TaskListener 自动从 requesterUserid 查部门 leader 覆盖 assignee。
         assignee 表达式 = requesterUserid 是 fallback（部门无 leader 时回退到发起人自审）。
+        使用 delegateExpression 让 Spring 容器解析 bean, 保证 @Autowired 注入生效。
       </documentation>
       <extensionElements>
         <flowable:taskListener event="create"
-                               class="com.RD.rd.ecn.listener.EcnApprovalTaskListener" />
+                               delegateExpression="${ecnApprovalTaskListener}" />
         <flowable:taskListener event="complete"
-                               class="com.RD.rd.ecn.listener.EcnApprovalTaskListener" />
+                               delegateExpression="${ecnApprovalTaskListener}" />
         <flowable:taskListener event="delete"
-                               class="com.RD.rd.ecn.listener.EcnApprovalTaskListener" />
+                               delegateExpression="${ecnApprovalTaskListener}" />
       </extensionElements>
     </userTask>
 
@@ -64,14 +65,15 @@
     <userTask id="techLeadReview" name="技术总工审批" flowable:assignee="tech_lead">
       <documentation>
         写死 assignee=tech_lead。Round 3 改为按 sys_user.role = 'TECH_LEAD' 查询。
+        使用 delegateExpression 让 Spring 容器解析 bean, 保证 @Autowired 注入生效。
       </documentation>
       <extensionElements>
         <flowable:taskListener event="create"
-                               class="com.RD.rd.ecn.listener.EcnApprovalTaskListener" />
+                               delegateExpression="${ecnApprovalTaskListener}" />
         <flowable:taskListener event="complete"
-                               class="com.RD.rd.ecn.listener.EcnApprovalTaskListener" />
+                               delegateExpression="${ecnApprovalTaskListener}" />
         <flowable:taskListener event="delete"
-                               class="com.RD.rd.ecn.listener.EcnApprovalTaskListener" />
+                               delegateExpression="${ecnApprovalTaskListener}" />
       </extensionElements>
     </userTask>
 

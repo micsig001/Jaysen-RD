@@ -103,6 +103,14 @@ public class EcnController {
         return Result.success(ecnService.cancelEcn(id, currentUser()));
     }
 
+    @PostMapping("/{id}/implement")
+    @AuditLog(operationType = "IMPLEMENT", resourceType = "ECN",
+            resourceIdParam = "#id", description = "标记 ECN 实施完成")
+    @Operation(summary = "标记 ECN 实施完成（APPROVED → IMPLEMENTED）")
+    public Result<EcnChangeVO> markImplemented(@PathVariable Long id) {
+        return Result.success(ecnService.markImplemented(id, currentUser()));
+    }
+
     // ============================================
     // 工具方法
     // ============================================

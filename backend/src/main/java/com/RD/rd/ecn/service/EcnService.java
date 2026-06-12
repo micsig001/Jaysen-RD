@@ -11,6 +11,7 @@ import com.RD.rd.ecn.dto.CreateEcnRequest;
 import com.RD.rd.ecn.dto.EcnApprovalVO;
 import com.RD.rd.ecn.dto.EcnChangeVO;
 import com.RD.rd.ecn.dto.EcnQuery;
+import com.RD.rd.ecn.listener.EcnApprovalNotifyService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import lombok.RequiredArgsConstructor;
@@ -62,6 +63,7 @@ public class EcnService {
     private final EcnChangeMapper ecnChangeMapper;
     private final EcnApprovalMapper ecnApprovalMapper;
     private final SysUserMapper userMapper;
+    private final EcnApprovalNotifyService notifyService;
 
     /** 注入 Flowable 引擎（由 FlowableConfig.processEngine() Bean 提供） */
     private final ProcessEngine processEngine;
@@ -339,6 +341,35 @@ public class EcnService {
         ecn.setUpdatedAt(LocalDateTime.now());
         ecnChangeMapper.updateById(ecn);
         log.info("[ECN] 撤回: id={}, operator={}", id, currentUser.getUserId());
+        return getEcnById(id, currentUser);
+    }
+
+    /**
+     * 标记实施完成（APPROVED → IMPLEMENTED）
+     *
+     * <p>仅发起人或 ADMIN 可操作。实施完成意味着 ECN 已落地（修改了 BOM / 文档 / 工艺）。</p>
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public EcnChangeVO markImplemented(Long id, SysUser currentUser) {
+        EcnChange ecn = ecnChangeMapper.selectById(id);
+        if (ecn == null) {
+            throw BusinessException.notFound("ECN 不存在: " + id);
+        }
+        if (!"APPROVED".equals(ecn.getStatus())) {
+            throw BusinessException.badRequest("只有审批通过的 ECN 可标记实施完成（当前: " + ecn.getStatus() + "）");
+        }
+        if (!Objects.equals(ecn.getRequesterUserid(), currentUser.getUserId())
+                && !"ADMIN".equals(currentUser.getRole())) {
+            throw BusinessException.forbidden("只能标记自己创建的 ECN 实施完成");
+        }
+
+        ecn.setStatus("IMPLEMENTED");
+        ecn.setCompletedAt(LocalDateTime.now());
+        ecn.setUpdatedAt(LocalDateTime.now());
+        ecnChangeMapper.updateById(ecn);
+        log.info("[ECN] 实施完成: id={}, operator={}", id, currentUser.getUserId());
+        // 通知（占位 log）
+        notifyService.notifyImplemented(id);
         return getEcnById(id, currentUser);
     }
 

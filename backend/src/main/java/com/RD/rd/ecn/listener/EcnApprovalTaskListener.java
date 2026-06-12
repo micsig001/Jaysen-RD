@@ -49,6 +49,7 @@ public class EcnApprovalTaskListener implements TaskListener {
     private final SysUserMapper userMapper;
     private final SysDepartmentMapper departmentMapper;
     private final EcnService ecnService;
+    private final EcnApprovalNotifyService notifyService;
 
     @Override
     public void notify(DelegateTask task) {
@@ -114,6 +115,11 @@ public class EcnApprovalTaskListener implements TaskListener {
         log.info("[ECN TaskListener] 创建 approval: ecnId={} step={} approver={} role={}",
                 approval.getEcnId(), approval.getStepOrder(),
                 approval.getApproverUserid(), approval.getRole());
+
+        // 通知审批人（占位 log, 后续接企微）
+        if (approval.getEcnId() != null) {
+            notifyService.notifyTaskAssigned(approval.getEcnId(), assignee, task.getName());
+        }
     }
 
     /**
@@ -140,6 +146,12 @@ public class EcnApprovalTaskListener implements TaskListener {
         approvalMapper.updateById(approval);
         log.info("[ECN TaskListener] 完成 approval: id={} status={}",
                 approval.getId(), approval.getStatus());
+
+        // 通知发起人（占位 log）
+        if (ecnId != null) {
+            String approverName = lookupName(approval.getApproverUserid());
+            notifyService.notifyApprovalResult(ecnId, approverName, approved, comment);
+        }
 
         // 同步 ECN 主表状态（任一驳回 = REJECTED，全部通过 = APPROVED 走下一阶段）
         Long ecnId = approval.getEcnId();
@@ -207,6 +219,12 @@ public class EcnApprovalTaskListener implements TaskListener {
         if (departmentId == null) return null;
         SysDepartment dept = departmentMapper.selectById(departmentId);
         return dept != null ? dept.getName() : null;
+    }
+
+    private String lookupName(String userId) {
+        if (!org.springframework.util.StringUtils.hasText(userId)) return null;
+        SysUser u = userMapper.selectByUserId(userId);
+        return u != null ? u.getName() : null;
     }
 
     /**
