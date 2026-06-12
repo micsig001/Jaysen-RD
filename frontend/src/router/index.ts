@@ -101,7 +101,7 @@ const router = createRouter({
         {
           path: 'rd/dashboard',
           name: 'RdDashboard',
-          component: () => import('@/views/PlaceholderView.vue'),
+          component: () => import('@/views/dashboard/DashboardView.vue'),
           meta: { title: '研发仪表盘', module: 'rd', phase: 'P3' }
         }
       ]
