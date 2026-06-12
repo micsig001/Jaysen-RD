@@ -95,7 +95,7 @@ const router = createRouter({
         {
           path: 'rd/defects',
           name: 'RdDefects',
-          component: () => import('@/views/PlaceholderView.vue'),
+          component: () => import('@/views/defect/DefectListView.vue'),
           meta: { title: '缺陷跟踪', module: 'rd', phase: 'P3' }
         },
         {
