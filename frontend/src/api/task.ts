@@ -122,3 +122,44 @@ export function createTask(data: CreateTaskRequest) {
 export function updateTask(id: number, data: CreateTaskRequest) {
   return request<TaskVO>({ url: `/tasks/${id}`, method: 'put', data })
 }
+
+// ============================================
+// 状态流转（Phase 2.5 接入）
+// ============================================
+
+/**
+ * 接收方确认接收任务（PENDING_ACCEPT → IN_PROGRESS）
+ */
+export function acceptTask(id: number) {
+  return request<void>({ url: `/tasks/${id}/accept`, method: 'post' })
+}
+
+/**
+ * 执行方提交完成（IN_PROGRESS → PENDING_VERIFY）
+ */
+export function submitTask(id: number, remark?: string) {
+  return request<void>({ url: `/tasks/${id}/submit`, method: 'post', data: { remark } })
+}
+
+/**
+ * 发起方验收（PENDING_VERIFY → COMPLETED）
+ */
+export function completeTask(id: number) {
+  return request<void>({ url: `/tasks/${id}/complete`, method: 'post' })
+}
+
+/**
+ * 发起方驳回（PENDING_VERIFY → IN_PROGRESS）
+ *
+ * @param reason 驳回原因（必填）
+ */
+export function rejectTask(id: number, reason: string) {
+  return request<void>({ url: `/tasks/${id}/reject`, method: 'post', data: { reason } })
+}
+
+/**
+ * 发起方撤回（PENDING_ACCEPT/IN_PROGRESS → WITHDRAWN）
+ */
+export function cancelTask(id: number, reason?: string) {
+  return request<void>({ url: `/tasks/${id}/cancel`, method: 'post', data: { reason } })
+}

@@ -72,9 +72,23 @@
             <span v-else class="muted">-</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="120" fixed="right">
+        <el-table-column label="操作" width="240" fixed="right">
           <template #default="{ row }">
             <el-button link type="primary" size="small" @click="handleView(row)">查看</el-button>
+            <!-- 状态流转按钮（按角色 + 状态动态显示） -->
+            <template v-if="canAccept(row)">
+              <el-button link type="success" size="small" @click="handleAccept(row)">接收</el-button>
+            </template>
+            <template v-if="canSubmit(row)">
+              <el-button link type="primary" size="small" @click="handleSubmit(row)">提交</el-button>
+            </template>
+            <template v-if="canComplete(row)">
+              <el-button link type="success" size="small" @click="handleComplete(row)">验收</el-button>
+              <el-button link type="danger" size="small" @click="handleReject(row)">驳回</el-button>
+            </template>
+            <template v-if="canCancel(row)">
+              <el-button link type="warning" size="small" @click="handleCancel(row)">撤回</el-button>
+            </template>
           </template>
         </el-table-column>
       </el-table>
@@ -196,17 +210,82 @@
         <el-button @click="detailDialogVisible = false">关闭</el-button>
       </template>
     </el-dialog>
+
+    <!-- ========== 驳回原因对话框 ========== -->
+    <el-dialog
+      v-model="rejectDialogVisible"
+      title="驳回任务"
+      width="480px"
+      :close-on-click-modal="false"
+    >
+      <el-form v-if="rejectTarget" label-width="80px">
+        <el-form-item label="任务">
+          <span class="task-ref">{{ rejectTarget.taskNo }} - {{ rejectTarget.title }}</span>
+        </el-form-item>
+        <el-form-item label="驳回原因" required>
+          <el-input
+            v-model="rejectReason"
+            type="textarea"
+            :rows="3"
+            placeholder="请说明驳回原因，将记录到状态历史"
+            maxlength="500"
+            show-word-limit
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="rejectDialogVisible = false">取消</el-button>
+        <el-button type="danger" :loading="actionLoading[rejectTarget?.id ?? -1]" @click="confirmReject">
+          确认驳回
+        </el-button>
+      </template>
+    </el-dialog>
+
+    <!-- ========== 撤回原因对话框 ========== -->
+    <el-dialog
+      v-model="cancelDialogVisible"
+      title="撤回任务"
+      width="480px"
+      :close-on-click-modal="false"
+    >
+      <el-form v-if="cancelTarget" label-width="80px">
+        <el-form-item label="任务">
+          <span class="task-ref">{{ cancelTarget.taskNo }} - {{ cancelTarget.title }}</span>
+        </el-form-item>
+        <el-form-item label="撤回原因">
+          <el-input
+            v-model="cancelReason"
+            type="textarea"
+            :rows="3"
+            placeholder="选填：说明撤回原因，将记录到状态历史"
+            maxlength="500"
+            show-word-limit
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="cancelDialogVisible = false">取消</el-button>
+        <el-button type="warning" :loading="actionLoading[cancelTarget?.id ?? -1]" @click="confirmCancel">
+          确认撤回
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { Search, Refresh, Plus } from '@element-plus/icons-vue'
 import {
   listTasks,
   getTask,
   createTask,
+  acceptTask,
+  submitTask,
+  completeTask,
+  rejectTask,
+  cancelTask,
   TASK_STATUSES,
   TASK_PRIORITIES,
   type TaskVO,
@@ -215,6 +294,7 @@ import {
   type TaskPriority,
   type CreateTaskRequest
 } from '@/api/task'
+import { useUserStore } from '@/stores/user'
 
 type ElTagType = 'primary' | 'success' | 'warning' | 'info' | 'danger' | ''
 
@@ -389,6 +469,121 @@ const currentTask = ref<TaskVO | null>(null)
 onMounted(() => {
   fetchList()
 })
+
+// ============== 状态流转（按角色 + 状态动态显示） ==============
+
+const userStore = useUserStore()
+
+/**
+ * 通用操作 loading 状态（key: taskId）
+ */
+const actionLoading = reactive<Record<number, boolean>>({})
+
+function setActionLoading(id: number, on: boolean) {
+  actionLoading[id] = on
+}
+
+// === 操作权限判定 ===
+
+function isCreator(row: TaskVO) {
+  return row.creatorId === userStore.userInfo?.userId
+}
+function isAssignee(row: TaskVO) {
+  return row.assigneeId === userStore.userInfo?.userId
+}
+
+function canAccept(row: TaskVO) {
+  return row.status === 'PENDING_ACCEPT' && isAssignee(row)
+}
+function canSubmit(row: TaskVO) {
+  return row.status === 'IN_PROGRESS' && isAssignee(row)
+}
+function canComplete(row: TaskVO) {
+  return row.status === 'PENDING_VERIFY' && isCreator(row)
+}
+function canCancel(row: TaskVO) {
+  return (row.status === 'PENDING_ACCEPT' || row.status === 'IN_PROGRESS') && isCreator(row)
+}
+
+// === 操作 handler ===
+
+async function handleAccept(row: TaskVO) {
+  await runAction(row, () => acceptTask(row.id), '已接收')
+}
+
+async function handleSubmit(row: TaskVO) {
+  // submit 可选 remark，简化为直接调（前端可后续加 prompt）
+  await runAction(row, () => submitTask(row.id), '已提交待验收')
+}
+
+async function handleComplete(row: TaskVO) {
+  try {
+    await ElMessageBox.confirm(
+      `确认验收任务「${row.title}」？此操作不可撤销。`,
+      '验收确认',
+      { type: 'success', confirmButtonText: '验收', cancelButtonText: '取消' }
+    )
+  } catch { return }
+  await runAction(row, () => completeTask(row.id), '已验收')
+}
+
+function handleReject(row: TaskVO) {
+  rejectTarget.value = row
+  rejectReason.value = ''
+  rejectDialogVisible.value = true
+}
+
+function handleCancel(row: TaskVO) {
+  cancelTarget.value = row
+  cancelReason.value = ''
+  cancelDialogVisible.value = true
+}
+
+async function confirmReject() {
+  const row = rejectTarget.value
+  if (!row) return
+  const reason = rejectReason.value.trim()
+  if (!reason) {
+    ElMessage.warning('请输入驳回原因')
+    return
+  }
+  await runAction(row, () => rejectTask(row.id, reason), '已驳回，接收方可继续处理')
+  rejectDialogVisible.value = false
+}
+
+async function confirmCancel() {
+  const row = cancelTarget.value
+  if (!row) return
+  const reason = cancelReason.value.trim() || undefined
+  await runAction(row, () => cancelTask(row.id, reason), '已撤回任务')
+  cancelDialogVisible.value = false
+}
+
+/**
+ * 通用 action 包装：loading + 调接口 + 提示 + 刷新
+ */
+async function runAction(row: TaskVO, fn: () => Promise<unknown>, successMsg: string) {
+  setActionLoading(row.id, true)
+  try {
+    await fn()
+    ElMessage.success(successMsg)
+    handleSearch()
+  } catch (e) {
+    /* request.ts 拦截器已 toast */
+  } finally {
+    setActionLoading(row.id, false)
+  }
+}
+
+// === 驳回 / 撤回原因对话框 ===
+
+const rejectDialogVisible = ref(false)
+const rejectReason = ref('')
+const rejectTarget = ref<TaskVO | null>(null)
+
+const cancelDialogVisible = ref(false)
+const cancelReason = ref('')
+const cancelTarget = ref<TaskVO | null>(null)
 </script>
 
 <style scoped>
@@ -425,5 +620,9 @@ onMounted(() => {
   word-break: break-word;
   font-family: inherit;
   color: #606266;
+}
+.task-ref {
+  color: #606266;
+  font-size: 13px;
 }
 </style>
