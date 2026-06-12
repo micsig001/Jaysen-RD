@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             id="ecn-default-definitions"
+             targetNamespace="http://RD.com/flowable/ecn">
+
+  <process id="ecn-default" name="ECN Default Review Process" isExecutable="true">
+    <documentation>
+      ECN 工程变更审批流程（Phase 2 简化版）
+
+      流程：
+        1. 起草（发起人在 ecn_change 表里建 DRAFT）
+        2. 提交审批 → Flowable 启动本流程
+        3. 部门负责人审批 UserTask（assignee = ecn.requesterUserid 的部门负责人，Phase 2 暂时用发起人自己）
+        4. 技术总工审批 UserTask（assignee 写死 "tech_lead"，Phase 2.5 接入企微 + 部门负责人动态分配）
+        5. 任一驳回 → END（状态 REJECTED）
+        6. 全部通过 → END（状态 APPROVED）
+
+      Phase 2.5+ 待办：
+        - 部门负责人动态分配 TaskListener
+        - 企微审批通知
+        - 多步审批 multi-instance
+    </documentation>
+
+    <startEvent id="startEvent" name="ECN 提交" />
+
+    <sequenceFlow id="flow_start_to_dept" sourceRef="startEvent" targetRef="deptLeaderReview" />
+
+    <!-- ========== 第 1 步：部门负责人审批 ========== -->
+    <userTask id="deptLeaderReview" name="部门负责人审批" flowable:assignee="${requesterUserid}">
+      <documentation>Phase 2 临时：assignee 用发起人 UserID。Phase 2.5 改为部门负责人动态分配。</documentation>
+    </userTask>
+
+    <sequenceFlow id="flow_dept_to_gateway" sourceRef="deptLeaderReview" targetRef="approvalGateway" />
+
+    <!-- ========== 排他网关：审批结果分支 ========== -->
+    <exclusiveGateway id="approvalGateway" name="审批结果" />
+
+    <sequenceFlow id="flow_gateway_reject" sourceRef="approvalGateway" targetRef="ecnRejected">
+      <conditionExpression xsi:type="tFormalExpression">${approved == false}</conditionExpression>
+    </sequenceFlow>
+
+    <sequenceFlow id="flow_gateway_approve" sourceRef="approvalGateway" targetRef="techLeadReview">
+      <conditionExpression xsi:type="tFormalExpression">${approved == true}</conditionExpression>
+    </sequenceFlow>
+
+    <!-- ========== 第 2 步：技术总工审批 ========== -->
+    <userTask id="techLeadReview" name="技术总工审批" flowable:assignee="tech_lead">
+      <documentation>Phase 2 临时：assignee 写死。Phase 2.5 改为按角色查询 sys_user.role = 'TECH_LEAD'。</documentation>
+    </userTask>
+
+    <sequenceFlow id="flow_tech_to_end" sourceRef="techLeadReview" targetRef="ecnApproved" />
+
+    <!-- ========== 终止事件：APPROVED / REJECTED ========== -->
+    <endEvent id="ecnApproved" name="ECN 审批通过" />
+    <endEvent id="ecnRejected" name="ECN 审批驳回" />
+
+  </process>
+
+</definitions>
